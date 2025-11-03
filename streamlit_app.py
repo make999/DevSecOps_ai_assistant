@@ -12,11 +12,11 @@ import json
 import csv
 
 
-st.set_page_config(page_title="Shai.pro DataThon", layout="wide")
-st.title("Agai — DevSecOps AI Assistant")
+st.set_page_config(page_title="Agai - DevSecOps AI Assistant", layout="wide")
+st.title("Agai - DevSecOps AI Assistant")
 st.sidebar.title("Log Source")
 log_source = st.sidebar.selectbox(
-    "Выбери источник логов",
+    "Choose log source",
     ["SSH Logs (sample_logs.csv)", "Firewall Logs (firewall_logs.csv)", "Cowrie Honeypot Logs (cowrie_logs.csv)"]
 )
 
@@ -247,11 +247,11 @@ with tab2:
 
     if log_type == "ssh":
         user_q = st.text_input(
-            "Например: 'самый частый юзер который неудачно логинился за час' / 'топ 5 ip с неудачными входами за 5 минут' / 'сколько неудачных логинов за день'"
+            "For example: 'most frequent user who unsuccessfully logged in in an hour' / 'top 5 IPs with unsuccessful logins in 5 minutes' / 'how many unsuccessful logins per day'"
         )
         if st.button("Ask", key="ask_ssh"):
             if not user_q.strip():
-                st.warning("Введите запрос.")
+                st.warning("Your query.")
             else:
                 from chat import intent_to_query  
                 intent = intent_to_query(user_q, log_type="ssh")  # Gemini-first
@@ -280,40 +280,40 @@ with tab2:
                         sub = sub[sub["event"] == intent["event"]]
                     if intent.get("status") and "status" in sub.columns:
                         sub = sub[sub["status"] == intent["status"]]
-                    st.caption("Ничего не нашли за выбранный период. Показаны данные за последние 24 часа.")
+                    st.caption("Nothing found for the selected period. Data for the last 24 hours is shown.")
                 
                 if intent["op"] == "block_ip" and intent.get("target"):
                     block_ip(str(intent["target"]))
-                    st.success(f"IP {intent['target']} добавлен в блоклист.")
+                    st.success(f"IP {intent['target']} added to blocklist.")
                     st.stop()
 
                 if intent["op"] == "unblock_ip" and intent.get("target"):
                     unblock_ip(str(intent["target"]))
-                    st.success(f"IP {intent['target']} удалён из блоклиста.")
+                    st.success(f"IP {intent['target']} removed from blocklist.")
                     st.stop()
                 op = intent["op"]; limit = intent["limit"]
                 if sub.empty:
-                    st.info("Нет событий под запрос.")
+                    st.info("There are no events matching your request.")
                 else:
                     if op == "top_users":
                         ans = (sub.groupby("user").size().reset_index(name="events")
                                .sort_values("events", ascending=False).head(limit))
-                        st.write(f"Топ {len(ans)} пользователей:")
+                        st.write(f"Top {len(ans)} users:")
                         st.dataframe(ans, use_container_width=True)
                     elif op == "top_ips":
                         ans = (sub.groupby("src_ip").size().reset_index(name="events")
                                .sort_values("events", ascending=False).head(limit))
-                        st.write(f"Топ {len(ans)} IP-адресов:")
+                        st.write(f"Top {len(ans)} IP-addresses:")
                         st.dataframe(ans, use_container_width=True)
                     elif op == "count":
-                        st.write(f"Количество событий: **{len(sub)}**")
+                        st.write(f"Number of events: **{len(sub)}**")
                     else:
-                        st.write(f"Найдено {len(sub)} событий (первые 200):")
+                        st.write(f"{len(sub)} events found (first 200):")
                         st.dataframe(sub.head(200), use_container_width=True)
 
     elif log_type == "firewall":
         user_q_fw = st.text_input(
-            "Firewall: например 'топ 10 IP по deny за день' / 'сколько deny за 5 минут' / 'покажи deny за час'"
+            "Firewall: for example, 'top 10 IPs by deny per day' / 'how many deny in 5 minutes' / 'show deny in an hour'"
         )
         if st.button("Ask", key="ask_fw"):
             if not user_q_fw.strip():
@@ -331,12 +331,12 @@ with tab2:
 
             if intent["op"] == "block_ip" and intent.get("target"):
                 block_ip(str(intent["target"]))
-                st.success(f"IP {intent['target']} добавлен в блоклист.")
+                st.success(f"IP {intent['target']} added to blocklist.")
                 st.stop()
             if intent["op"] == "unblock_ip" and intent.get("target"):
                 from storage import unblock_ip
                 unblock_ip(str(intent["target"]))
-                st.success(f"IP {intent['target']} удалён из блоклиста.")
+                st.success(f"IP {intent['target']} deleted from blocklist.")
                 st.stop()
 
             logs["timestamp"] = pd.to_datetime(logs["timestamp"], utc=True)
@@ -347,26 +347,26 @@ with tab2:
                 sub = sub[sub["action"].astype(str).str.lower() == action.lower()]
 
             if sub.empty:
-                st.info("Нет событий под запрос.")
+                st.info("There are no events matching your request.")
             else:
                 op, limit = intent["op"], intent["limit"]
                 if op == "top_ips":
                     ans = (sub.groupby("src_ip").size().reset_index(name="events")
                            .sort_values("events", ascending=False).head(limit))
-                    st.write(f"Топ {len(ans)} IP (фильтр action: {action or '—'}):")
+                    st.write(f"Топ {len(ans)} IP (filter action: {action or '—'}):")
                     st.dataframe(ans, use_container_width=True)
                 elif op == "count":
-                    st.write(f"Количество событий: **{len(sub)}**")
+                    st.write(f"Events count: **{len(sub)}**")
                 else:
-                    st.write(f"Найдено {len(sub)} событий (первые 200):")
+                    st.write(f"{len(sub)} events found (first 200):")
                     st.dataframe(sub.head(200), use_container_width=True)
     elif log_type == "cowrie":
         user_q_cw = st.text_input(
-            "Cowrie: например 'топ 10 IP за час' / 'самые частые пароли за день' / 'топ юзеров за 5 минут'"
+            "Cowrie: for example, 'top 10 IPs for the hour' / 'most common passwords for the day' / 'top users for 5 minutes'"
         )
         if st.button("Ask", key="ask_cowrie"):
             if not user_q_cw.strip():
-                st.warning("Введите запрос.")
+                st.warning("Enter your request.")
             else:
                 intent = intent_to_query(user_q_cw, log_type="cowrie")  # Gemini -> fallback
                 st.write("Parsed intent:", {
@@ -391,7 +391,7 @@ with tab2:
                     sub = sub[sub["password"].astype(str).str.contains(intent["password"], case=False, na=False)]
 
                 if sub.empty:
-                    st.info("Нет событий под запрос.")
+                    st.info("There are no events matching your request.")
                 else:
                     op, limit = intent["op"], intent["limit"]
                     if op == "top_ips":
@@ -407,7 +407,7 @@ with tab2:
                         ans.columns = ["password","events"]
                         st.dataframe(ans, use_container_width=True)
                     elif op == "count":
-                        st.write(f"Количество событий: **{len(sub)}**")
+                        st.write(f"Events count: **{len(sub)}**")
                     else:
                         st.dataframe(sub.head(200), use_container_width=True)
 with tab3:
