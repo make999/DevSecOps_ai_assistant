@@ -47,7 +47,7 @@ def _coerce_datetime(s: str) -> datetime:
         dt = dt.replace(tzinfo=timezone.utc)
     return dt.astimezone(timezone.utc)
 
-def debug_intent(query: str="заблокируй IP 123.45.67.89 за сегодня", log_type: str="ssh"):
+def debug_intent(query: str="block IP 123.45.67.89 for today", log_type: str="ssh"):
     try:
         parsed = intent_to_filter(query, log_type)
         print("\n[DEBUG Gemini] RAW:", query)
@@ -61,11 +61,11 @@ def debug_intent(query: str="заблокируй IP 123.45.67.89 за сего�
 def parse_time_window(text: str):
     q = text.lower()
     now = datetime.now(timezone.utc)
-    if "последний час" in q or "за час" in q:
+    if "last hour" in q or "per hour" in q:
         return now - timedelta(hours=1), now
-    if "за день" in q or "сегодня" in q:
+    if "for day" in q or "today" in q:
         return now - timedelta(days=1), now
-    if "последние 5 минут" in q or "за 5 минут" in q or "за пять минут" in q:
+    if "last 5 minut" in q or "for 5 minut" in q or "for five minut" in q:
         return now - timedelta(minutes=5), now
     return now - timedelta(hours=1), now
 
@@ -122,30 +122,30 @@ def intent_to_filter(query: str, log_type: str = "ssh"):
     }
 
     system_instruction = f"""
-Ты SecOps-ассистент. Верни СТРОГИЙ JSON по схеме. Никаких комментариев.
-Текущее UTC: "{_iso_utc(datetime.now(timezone.utc))}"
-Правила времени:
-- "за час" -> [now-1h, now]
-- "за день" -> [now-24h, now]
-- "за 5 минут" -> [now-5m, now]
-Логические правила:
-- Если запрос про блокировку и указан IP -> op="block_ip"
-- Если про разблокировку -> op="unblock_ip"
-- Отчёт/summary -> op="report"
-- Инцидент -> op="incident"
-- Топ N -> op="top_ips"/"top_users"/"top_passwords"
-- Сколько -> op="count"
-- Иначе -> op="list"
+You are a SecOps Assistant. Return STRICT JSON according to the schema. No comments.
+Current UTC: "{_iso_utc(datetime.now(timezone.utc))}"
+Time rules:
+- "per hour" -> [now-1h, now]
+- "per day" -> [now-24h, now]
+- "per 5 minutes" -> [now-5m, now]
+Logical rules:
+- If the request is for blocking and an IP is specified -> op="block_ip"
+- If for unblocking -> op="unblock_ip"
+- Report/summary -> op="report"
+- Incident -> op="incident"
+- Top N -> op="top_ips"/"top_users"/"top_passwords"
+- Number -> op="count"
+- Otherwise -> op="list"
 """
 
     now = datetime.now(timezone.utc)
 
     few_shots = [
-        f'Запрос: "заблокируй IP 123.45.67.89 за сегодня"',
+        f'Query: "Block IP 123.45.67.89 today"',
         '{ "op":"block_ip", "target":"123.45.67.89", "start":"%NOW-24H%", "end":"%NOW%", "context":"analyst" }',
-        f'Запрос: "разблокируй 123.45.67.89"',
+        f'Query: "Unblock 123.45.67.89"',
         '{ "op":"unblock_ip", "target":"123.45.67.89", "start":"%NOW-1H%", "end":"%NOW%", "context":"analyst" }',
-        f'Запрос: "топ 10 IP по deny за день"',
+        f'Query: "Top 10 IPs by deny for the day"',
         '{ "op":"top_ips", "limit":10, "action":"deny", "start":"%NOW-24H%", "end":"%NOW%", "context":"analyst" }'
     ]
 
@@ -223,19 +223,19 @@ def intent_to_query(query: str, log_type: str = "ssh"):
         q = query.lower()
         op = "list"
         limit = _extract_int(q, 10)
-        if "топ" in q or "top" in q or "самый частый" in q:
+        if "топ" in q or "top" in q or "most freq" in q or "most common":
             if "ip" in q: op = "top_ips"
-            elif "юзер" in q or "username" in q: op = "top_users"
-            elif "парол" in q: op = "top_passwords"
-        elif "сколько" in q or "колич" in q or "count" in q:
+            elif "user" in q or "username" in q: op = "top_users"
+            elif "passw" in q: op = "top_passwords"
+        elif "how" in q or "count" in q:
             op = "count"
 
         base = {"start": start, "end": end, "op": op, "limit": limit, "context":"analyst"}
         if log_type == "ssh":
-            if any(w in q for w in ["вход","логин","auth"]): base["event"] = "auth"
-            if any(w in q for w in ["неудач","fail","ошиб"]): base["status"] = "fail"
+            if any(w in q for w in ["session","login","auth"]): base["event"] = "auth"
+            if any(w in q for w in ["failure","fail","error"]): base["status"] = "fail"
         elif log_type == "firewall":
-            if any(w in q for w in ["deny","заблок","блок"]): base["action"] = "deny"
+            if any(w in q for w in ["deny","block","blocked"]): base["action"] = "deny"
         elif log_type == "cowrie":
             pass
         return base
