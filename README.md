@@ -12,7 +12,8 @@
 ## Requirements
 
 - Python 3.8+
-- The following Python packages (see `requirements.txt`):
+- The following Python packages (see `requirements.txt`):    
+
   ```
   streamlit
   pandas
@@ -24,15 +25,21 @@
 ## Setup
 
 1. Clone the repository.
+
 2. Install dependencies:
+
    ```
    pip install -r requirements.txt
    ```
+
 3. Set up your `.env` file with your Google Gemini API key:
+
    ```
    GOOGLE_API_KEY=your_api_key_here
    ```
+
 4. Place your log files in the `data/` directory:
+
    - `sample_logs.csv` (SSH)
    - `firewall_logs.csv` (Firewall)
    - `cowrie_logs.csv` (Cowrie honeypot)
@@ -40,6 +47,7 @@
 ## Running
 
 Start the Streamlit app:
+
 ```
 streamlit run streamlit_app.py
 ```

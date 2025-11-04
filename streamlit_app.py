@@ -47,6 +47,7 @@ if blocked:
             st.sidebar.success(f"IP {ip_to_unblock} removed from blocklist. Refresh to update.")
 else:
     st.sidebar.code("(empty)")
+
 def sync_cowrie_to_csv():
     cowrie_json = Path("cowrie_logs/log/cowrie/cowrie.json")
     out_csv = Path("data/cowrie_logs.csv")
@@ -159,7 +160,7 @@ with tab1:
                 )
                 st.altair_chart(bars, use_container_width=True)
             else:
-                st.info("Нет minute-level данных для визуализации.")
+                st.info("No minute-level data for visualization.")
 
             st.markdown("**Forecast (next 60 min)**")
             if not findings.empty:
@@ -177,7 +178,7 @@ with tab1:
                     )
                     st.altair_chart(forecast_chart, use_container_width=True)
                 else:
-                    st.caption("Недостаточно данных для прогноза.")
+                    st.caption("Data not enough for forecast.")
         with col2:
             st.subheader("Actions")
             ip_to_block = st.selectbox("Block IP", [""] + incidents_view["src_ip"].astype(str).tolist())
@@ -211,10 +212,10 @@ with tab1:
         if not blocked.empty:
             top_blocked = blocked["src_ip"].value_counts().head(5).reset_index()
             top_blocked.columns = ["src_ip","denies"]
-            st.write("Топ IP по блокировкам:")
+            st.write("Top IP by blocking:")
             st.bar_chart(top_blocked.set_index("src_ip"))
         else:
-            st.info("Нет deny-событий в текущем файле.")
+            st.info("No deny-events in current file.")
     elif log_type == "cowrie":
         st.subheader("Cowrie Honeypot Overview")
         st.dataframe(logs.head(50), use_container_width=True)
@@ -232,7 +233,7 @@ with tab1:
                 top_users.columns = ["username","events"]
                 st.dataframe(top_users, use_container_width=True)
             else:
-                st.caption("Нет колонки username")
+                st.caption("No username column")
         with col_c:
             st.markdown("**Top passwords**")
             if "password" in logs.columns:
@@ -240,7 +241,7 @@ with tab1:
                 top_pw.columns = ["password","events"]
                 st.dataframe(top_pw, use_container_width=True)
             else:
-                st.caption("Нет колонки password")
+                st.caption("No password column")
 
 with tab2:
     st.subheader("Ask in natural language")
