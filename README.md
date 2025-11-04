@@ -3,7 +3,7 @@
 ![img](./img/2025-11-04_21-22.png)    
 
 ## Features
-- SSH, Firewall, and Cowrie honeypot log analysis
+- SSH, Firewall, Malware threats and Cowrie honeypot log analysis
 - Anomaly detection (rules + Isolation Forest)
 - Incident summarization and risk scoring
 - Natural language queries (Gemini-powered intent parsing)
@@ -47,6 +47,7 @@ GOOGLE_API_KEY=your_api_key_here
 - `sample_logs.csv` (SSH)
 - `firewall_logs.csv` (Firewall)
 - `cowrie_logs.csv` (Cowrie honeypot)
+- `threat_logs.csv` (Malware families)
 
 ![img](./img/2025-11-04_21-17.png)    
 
