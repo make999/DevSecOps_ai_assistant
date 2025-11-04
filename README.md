@@ -1,5 +1,7 @@
 # DevSecOps AI Assistant
 
+![img](./img/2025-11-04_21-22.png)    
+
 ## Features
 - SSH, Firewall, and Cowrie honeypot log analysis
 - Anomaly detection (rules + Isolation Forest)
@@ -59,6 +61,8 @@ streamlit run streamlit_app.py
 ```
 
 ![img](./img/2025-11-04_21-19.png)    
+
+![img](./img/2025-11-04_21-22.png)    
 
 ## Usage
 
