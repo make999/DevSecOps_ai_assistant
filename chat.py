@@ -224,7 +224,7 @@ def intent_to_query(query: str, log_type: str = "ssh"):
         op = "list"
         limit = _extract_int(q, 10)
         if "топ" in q or "top" in q or "most freq" in q or "most common":
-            if "ip" in q: op = "top_ips"
+            if "src_ip" in q: op = "top_ips"
             elif "user" in q or "username" in q: op = "top_users"
             elif "passw" in q: op = "top_passwords"
         elif "how" in q or "count" in q:
@@ -236,6 +236,8 @@ def intent_to_query(query: str, log_type: str = "ssh"):
             if any(w in q for w in ["failure","fail","error"]): base["status"] = "fail"
         elif log_type == "firewall":
             if any(w in q for w in ["deny","block","blocked"]): base["action"] = "deny"
+        elif log_type == "threat":
+            if any(w in q for w in ["malware","botnet","threat","cobalt","rat","beacon"]): base["event"] = "threat"
         elif log_type == "cowrie":
             pass
         return base

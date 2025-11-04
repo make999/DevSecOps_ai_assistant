@@ -9,6 +9,8 @@ def load_logs(path: str, log_type: str = "ssh") -> pd.DataFrame:
         return df[["timestamp","src_ip","user","event","status","port"]]
     elif log_type == "firewall":
         return df[["timestamp","src_ip","dst_ip","port","action"]]
+    elif log_type == "threat":
+        return df[["timestamp","threat","malware","src_ip","port"]]
     else:
         return df
 
@@ -129,4 +131,19 @@ def run_detection(csv_path: str,
     elif log_type == "firewall":
         incidents = summarize_firewall_incidents(logs, top_k=50)
         findings = pd.DataFrame()
+        return logs, findings, incidents
+
+    elif log_type == "threat":
+        df = logs.copy()
+        findings = pd.DataFrame()
+        # simple aggregation: по malware и ip
+        incidents = (
+            df.groupby(["malware","src_ip"])
+              .size()
+              .reset_index(name="events")
+              .sort_values("events", ascending=False)
+              .head(50)
+        )
+        incidents["severity"] = "High"
+        incidents["risk"] = 10.0
         return logs, findings, incidents

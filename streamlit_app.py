@@ -17,7 +17,7 @@ st.title("Agai - DevSecOps AI Assistant")
 st.sidebar.title("Log Source")
 log_source = st.sidebar.selectbox(
     "Choose log source",
-    ["SSH Logs (sample_logs.csv)", "Firewall Logs (firewall_logs.csv)", "Cowrie Honeypot Logs (cowrie_logs.csv)"]
+    ["SSH Logs (sample_logs.csv)", "Firewall Logs (firewall_logs.csv)", "Cowrie Honeypot Logs (cowrie_logs.csv)", "Threat Intel Logs (threat_logs.csv)",]
 )
 
 if log_source.startswith("SSH"):
@@ -26,9 +26,13 @@ if log_source.startswith("SSH"):
 elif log_source.startswith("Firewall"):
     DATA_PATH = "data/firewall_logs.csv"
     log_type = "firewall"
-else:
+elif log_source.startswith("Cowrie"):
     DATA_PATH = "data/cowrie_logs.csv"
     log_type = "cowrie"
+elif log_source.startswith("Threat"):
+    DATA_PATH = "data/threat_logs.csv"
+    log_type = "threat"
+
 
 st.sidebar.write("CSV logs path:", DATA_PATH)
 window_minutes = st.sidebar.slider("Rolling window (minutes)", 1, 15, 5)
@@ -243,6 +247,20 @@ with tab1:
             else:
                 st.caption("No password column")
 
+    elif log_type == "threat":
+        st.subheader("Threat Intelligence Overview")
+        st.dataframe(logs.head(50), use_container_width=True)
+
+        top_malware = logs["malware"].value_counts().head(10).reset_index()
+        top_malware.columns = ["malware","count"]
+        st.markdown("**Top Malware Families**")
+        st.bar_chart(top_malware.set_index("malware"))
+
+        top_ips = logs["src_ip"].value_counts().head(10).reset_index()
+        top_ips.columns = ["src_ip","count"]
+        st.markdown("**Top Command & Control IPs**")
+        st.dataframe(top_ips, use_container_width=True)
+
 with tab2:
     st.subheader("Ask in natural language")
 
@@ -411,6 +429,54 @@ with tab2:
                         st.write(f"Events count: **{len(sub)}**")
                     else:
                         st.dataframe(sub.head(200), use_container_width=True)
+    elif log_type == "threat":
+        user_q_threat = st.text_input(
+            "Threat Intel: e.g. 'top 10 malware families today' / 'show C2 IPs with cobalt strike' / 'how many threats with asyncrat'"
+        )
+        if st.button("Ask", key="ask_threat"):
+            if not user_q_threat.strip():
+                st.warning("Enter your request.")
+            else:
+                intent = intent_to_query(user_q_threat, log_type="threat")
+                st.write("Parsed intent:", {
+                    "start": intent["start"].isoformat(),
+                    "end": intent["end"].isoformat(),
+                    "op": intent["op"],
+                    "limit": intent["limit"],
+                    "event": intent.get("event"),
+                    "target": intent.get("target"),
+                    "context": intent.get("context"),
+                })
+
+                # threat_logs.csv не содержит timestamp — пропускаем фильтрацию по времени
+                sub = logs.copy()
+
+                # filter by malware / ip (если указано)
+                if intent.get("target") and "src_ip" in sub.columns:
+                    sub = sub[sub["src_ip"].astype(str).str.contains(intent["target"], case=False, na=False)]
+                if intent.get("event") and "malware" in sub.columns:
+                    sub = sub[sub["malware"].astype(str).str.contains(intent["event"], case=False, na=False)]
+
+                if sub.empty:
+                    st.info("No matching threats found.")
+                else:
+                    op, limit = intent["op"], intent["limit"]
+                    if op == "top_ips" and "src_ip" in sub.columns:
+                        ans = sub["src_ip"].value_counts().head(limit).reset_index()
+                        ans.columns = ["src_ip","detections"]
+                        st.write(f"Top {len(ans)} threat IPs:")
+                        st.dataframe(ans, use_container_width=True)
+                    elif op == "top_users" or op == "top_malware" or "malware" in sub.columns:
+                        ans = sub["malware"].value_counts().head(limit).reset_index()
+                        ans.columns = ["malware","detections"]
+                        st.write(f"Top {len(ans)} malware families:")
+                        st.dataframe(ans, use_container_width=True)
+                    elif op == "count":
+                        st.write(f"Threat entries count: **{len(sub)}**")
+                    else:
+                        st.write(f"{len(sub)} threat entries (first 200):")
+                        st.dataframe(sub.head(200), use_container_width=True)
+
 with tab3:
     if log_type == "ssh":
         st.subheader("Minute-level findings")
@@ -418,9 +484,33 @@ with tab3:
     elif log_type == "firewall":
         st.subheader("Firewall incidents (top denied sources)")
         st.dataframe(incidents.head(50), use_container_width=True)
-    else:
+    elif log_type == "cowrie":
         st.subheader("Cowrie summary (top sources)")
         st.dataframe(incidents.head(50), use_container_width=True)
+    elif log_type == "threat":  # new
+        st.subheader("Threat Intelligence Summary (Top Malware & C2 IPs)")
+        st.dataframe(incidents.head(50), use_container_width=True)
+
+        col1, col2 = st.columns(2)
+        with col1:
+            st.markdown("**Top Malware Families**")
+            top_mal = (
+                logs["malware"].value_counts()
+                .reset_index()
+                .rename(columns={"index": "malware", "malware": "detections"})
+                .head(10)
+            )
+            st.dataframe(top_mal, use_container_width=True)
+
+        with col2:
+            st.markdown("**Top C2 IP Addresses**")
+            top_ips = (
+                logs["src_ip"].value_counts()
+                .reset_index()
+                .rename(columns={"index": "src_ip", "src_ip": "detections"})
+                .head(10)
+            )
+            st.dataframe(top_ips, use_container_width=True)
 
 
 
