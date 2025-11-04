@@ -14,13 +14,13 @@
 - Python 3.8+
 - The following Python packages (see `requirements.txt`):    
 
-  ```
+```bash
   streamlit
   pandas
   scikit-learn
   numpy
   google-generativeai
-  ```
+```
 
 ## Setup
 
@@ -28,29 +28,37 @@
 
 2. Install dependencies:
 
-   ```
-   pip install -r requirements.txt
-   ```
+```bash
+pip install -r requirements.txt
+```
+
+![img](./img/2025-11-04_21-15.png)    
 
 3. Set up your `.env` file with your Google Gemini API key:
 
-   ```
-   GOOGLE_API_KEY=your_api_key_here
-   ```
+```bash
+GOOGLE_API_KEY=your_api_key_here
+```
 
 4. Place your log files in the `data/` directory:
 
-   - `sample_logs.csv` (SSH)
-   - `firewall_logs.csv` (Firewall)
-   - `cowrie_logs.csv` (Cowrie honeypot)
+- `sample_logs.csv` (SSH)
+- `firewall_logs.csv` (Firewall)
+- `cowrie_logs.csv` (Cowrie honeypot)
+
+![img](./img/2025-11-04_21-17.png)    
+
+![img](./img/2025-11-04_21-17_1.png)    
 
 ## Running
 
 Start the Streamlit app:
 
-```
+```bash
 streamlit run streamlit_app.py
 ```
+
+![img](./img/2025-11-04_21-19.png)    
 
 ## Usage
 
@@ -61,10 +69,10 @@ streamlit run streamlit_app.py
 
 ## File Structure
 
-- `streamlit_app.py` — Main UI
-- `detector.py` — Detection logic
-- `forecast.py` — Forecasting
-- `storage.py` — Blocklist and filtering
-- `chat.py` — NL intent parsing
-- `requirements.txt` — Dependencies
-- `data/` — Log files
+- `streamlit_app.py` - Main UI
+- `detector.py` - Detection logic
+- `forecast.py` - Forecasting
+- `storage.py` - Blocklist and filtering
+- `chat.py` - NL intent parsing
+- `requirements.txt` - Dependencies
+- `data/` - Log files
