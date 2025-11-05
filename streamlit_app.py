@@ -134,7 +134,7 @@ with tab1:
             cols_show = [c for c in cols_show if c in tbl_sorted.columns]
             st.dataframe(
                 tbl_sorted[cols_show].rename(columns={"severity_badge": "severity"}),
-                use_container_width=True
+                width="stretch"
             )
 
             st.markdown("**Anomaly timeline (fails/min & anomalies)**")
@@ -150,7 +150,7 @@ with tab1:
                     )
                     .properties(height=200, width="container")
                 )
-                st.altair_chart(line, use_container_width=True)
+                st.altair_chart(line, width="stretch")
 
                 bars = (
                     alt.Chart(series_df)
@@ -162,7 +162,7 @@ with tab1:
                     )
                     .properties(height=160, width="container")
                 )
-                st.altair_chart(bars, use_container_width=True)
+                st.altair_chart(bars, width="stretch")
             else:
                 st.info("No minute-level data for visualization.")
 
@@ -180,7 +180,7 @@ with tab1:
                         )
                         .properties(height=160, width="container")
                     )
-                    st.altair_chart(forecast_chart, use_container_width=True)
+                    st.altair_chart(forecast_chart, width="stretch")
                 else:
                     st.caption("Data not enough for forecast.")
         with col2:
@@ -205,12 +205,12 @@ with tab1:
                         axis=1
                     )
                     st.subheader("Cross-source correlation (SSH × Firewall)")
-                    st.dataframe(corr[["src_ip","risk","severity","fw_denies","corr_boosted_severity"]], use_container_width=True)
+                    st.dataframe(corr[["src_ip","risk","severity","fw_denies","corr_boosted_severity"]], width="stretch")
                 except Exception as e:
                     st.caption(f"Correlation skipped: {e}")
     elif log_type == "firewall":
         st.subheader("Firewall Events Overview")
-        st.dataframe(logs.head(50), use_container_width=True)
+        st.dataframe(logs.head(50), width="stretch")
 
         blocked = logs[logs.get("action","").astype(str).str.lower() == "deny"]
         if not blocked.empty:
@@ -222,20 +222,20 @@ with tab1:
             st.info("No deny-events in current file.")
     elif log_type == "cowrie":
         st.subheader("Cowrie Honeypot Overview")
-        st.dataframe(logs.head(50), use_container_width=True)
+        st.dataframe(logs.head(50), width="stretch")
 
         col_a, col_b, col_c = st.columns(3)
         with col_a:
             st.markdown("**Top source IPs**")
             top_ips = logs["src_ip"].value_counts().head(10).reset_index()
             top_ips.columns = ["src_ip","events"]
-            st.dataframe(top_ips, use_container_width=True)
+            st.dataframe(top_ips, width="stretch")
         with col_b:
             st.markdown("**Top usernames**")
             if "username" in logs.columns:
                 top_users = logs["username"].dropna().astype(str).value_counts().head(10).reset_index()
                 top_users.columns = ["username","events"]
-                st.dataframe(top_users, use_container_width=True)
+                st.dataframe(top_users, width="stretch")
             else:
                 st.caption("No username column")
         with col_c:
@@ -243,13 +243,13 @@ with tab1:
             if "password" in logs.columns:
                 top_pw = logs["password"].dropna().astype(str).value_counts().head(10).reset_index()
                 top_pw.columns = ["password","events"]
-                st.dataframe(top_pw, use_container_width=True)
+                st.dataframe(top_pw, width="stretch")
             else:
                 st.caption("No password column")
 
     elif log_type == "threat":
         st.subheader("Threat Intelligence Overview")
-        st.dataframe(logs.head(50), use_container_width=True)
+        st.dataframe(logs.head(50), width="stretch")
 
         top_malware = logs["malware"].value_counts().head(10).reset_index()
         top_malware.columns = ["malware","count"]
@@ -259,7 +259,7 @@ with tab1:
         top_ips = logs["src_ip"].value_counts().head(10).reset_index()
         top_ips.columns = ["src_ip","count"]
         st.markdown("**Top Command & Control IPs**")
-        st.dataframe(top_ips, use_container_width=True)
+        st.dataframe(top_ips, width="stretch")
 
 with tab2:
     st.subheader("Ask in natural language")
@@ -318,17 +318,17 @@ with tab2:
                         ans = (sub.groupby("user").size().reset_index(name="events")
                                .sort_values("events", ascending=False).head(limit))
                         st.write(f"Top {len(ans)} users:")
-                        st.dataframe(ans, use_container_width=True)
+                        st.dataframe(ans, width="stretch")
                     elif op == "top_ips":
                         ans = (sub.groupby("src_ip").size().reset_index(name="events")
                                .sort_values("events", ascending=False).head(limit))
                         st.write(f"Top {len(ans)} IP-addresses:")
-                        st.dataframe(ans, use_container_width=True)
+                        st.dataframe(ans, width="stretch")
                     elif op == "count":
                         st.write(f"Number of events: **{len(sub)}**")
                     else:
                         st.write(f"{len(sub)} events found (first 200):")
-                        st.dataframe(sub.head(200), use_container_width=True)
+                        st.dataframe(sub.head(200), width="stretch")
 
     elif log_type == "firewall":
         user_q_fw = st.text_input(
@@ -373,12 +373,12 @@ with tab2:
                     ans = (sub.groupby("src_ip").size().reset_index(name="events")
                            .sort_values("events", ascending=False).head(limit))
                     st.write(f"Топ {len(ans)} IP (filter action: {action or '—'}):")
-                    st.dataframe(ans, use_container_width=True)
+                    st.dataframe(ans, width="stretch")
                 elif op == "count":
                     st.write(f"Events count: **{len(sub)}**")
                 else:
                     st.write(f"{len(sub)} events found (first 200):")
-                    st.dataframe(sub.head(200), use_container_width=True)
+                    st.dataframe(sub.head(200), width="stretch")
     elif log_type == "cowrie":
         user_q_cw = st.text_input(
             "Cowrie: for example, 'top 10 IPs for the hour' / 'most common passwords for the day' / 'top users for 5 minutes'"
@@ -416,19 +416,19 @@ with tab2:
                     if op == "top_ips":
                         ans = sub["src_ip"].value_counts().head(limit).reset_index()
                         ans.columns = ["src_ip","events"]
-                        st.dataframe(ans, use_container_width=True)
+                        st.dataframe(ans, width="stretch")
                     elif op == "top_users" and "username" in sub.columns:
                         ans = sub["username"].astype(str).value_counts().head(limit).reset_index()
                         ans.columns = ["username","events"]
-                        st.dataframe(ans, use_container_width=True)
+                        st.dataframe(ans, width="stretch")
                     elif op == "top_passwords" and "password" in sub.columns:
                         ans = sub["password"].astype(str).value_counts().head(limit).reset_index()
                         ans.columns = ["password","events"]
-                        st.dataframe(ans, use_container_width=True)
+                        st.dataframe(ans, width="stretch")
                     elif op == "count":
                         st.write(f"Events count: **{len(sub)}**")
                     else:
-                        st.dataframe(sub.head(200), use_container_width=True)
+                        st.dataframe(sub.head(200), width="stretch")
     elif log_type == "threat":
         user_q_threat = st.text_input(
             "Threat Intel: e.g. 'top 10 malware families today' / 'show C2 IPs with cobalt strike' / 'how many threats with asyncrat'"
@@ -438,15 +438,15 @@ with tab2:
                 st.warning("Enter your request.")
             else:
                 intent = intent_to_query(user_q_threat, log_type="threat")
-                st.write("Parsed intent:", {
-                    "start": intent["start"].isoformat(),
-                    "end": intent["end"].isoformat(),
-                    "op": intent["op"],
-                    "limit": intent["limit"],
-                    "event": intent.get("event"),
-                    "target": intent.get("target"),
-                    "context": intent.get("context"),
-                })
+                # st.write("Parsed intent:", {
+                #     "start": intent["start"].isoformat(),
+                #     "end": intent["end"].isoformat(),
+                #     "op": intent["op"],
+                #     "limit": intent["limit"],
+                #     "threat": intent.get("threat"),
+                #     "malware": intent.get("malware"),
+                #     "context": intent.get("context"),
+                # })
 
                 # threat_logs.csv не содержит timestamp — пропускаем фильтрацию по времени
                 sub = logs.copy()
@@ -461,35 +461,39 @@ with tab2:
                     st.info("No matching threats found.")
                 else:
                     op, limit = intent["op"], intent["limit"]
+                    malware = intent["malware"]
                     if op == "top_ips" and "src_ip" in sub.columns:
                         ans = sub["src_ip"].value_counts().head(limit).reset_index()
                         ans.columns = ["src_ip","detections"]
-                        st.write(f"Top {len(ans)} threat IPs:")
-                        st.dataframe(ans, use_container_width=True)
+                        if malware:
+                            st.write(f"Top {len(ans)} threat with {malware} IPs:")
+                        else:
+                            st.write(f"Top {len(ans)} threat IPs:")
+                        st.dataframe(ans, width="stretch")
                     elif op == "top_users" or op == "top_malware" or "malware" in sub.columns:
                         ans = sub["malware"].value_counts().head(limit).reset_index()
                         ans.columns = ["malware","detections"]
                         st.write(f"Top {len(ans)} malware families:")
-                        st.dataframe(ans, use_container_width=True)
+                        st.dataframe(ans, width="stretch")
                     elif op == "count":
                         st.write(f"Threat entries count: **{len(sub)}**")
                     else:
                         st.write(f"{len(sub)} threat entries (first 200):")
-                        st.dataframe(sub.head(200), use_container_width=True)
+                        st.dataframe(sub.head(200), width="stretch")
 
 with tab3:
     if log_type == "ssh":
         st.subheader("Minute-level findings")
-        st.dataframe(findings.head(500), use_container_width=True)
+        st.dataframe(findings.head(500), width="stretch")
     elif log_type == "firewall":
         st.subheader("Firewall incidents (top denied sources)")
-        st.dataframe(incidents.head(50), use_container_width=True)
+        st.dataframe(incidents.head(50), width="stretch")
     elif log_type == "cowrie":
         st.subheader("Cowrie summary (top sources)")
-        st.dataframe(incidents.head(50), use_container_width=True)
+        st.dataframe(incidents.head(50), width="stretch")
     elif log_type == "threat":  # new
         st.subheader("Threat Intelligence Summary (Top Malware & C2 IPs)")
-        st.dataframe(incidents.head(50), use_container_width=True)
+        st.dataframe(incidents.head(50), width="stretch")
 
         col1, col2 = st.columns(2)
         with col1:
@@ -500,7 +504,7 @@ with tab3:
                 .rename(columns={"index": "malware", "malware": "detections"})
                 .head(10)
             )
-            st.dataframe(top_mal, use_container_width=True)
+            st.dataframe(top_mal, width="stretch")
 
         with col2:
             st.markdown("**Top C2 IP Addresses**")
@@ -510,7 +514,7 @@ with tab3:
                 .rename(columns={"index": "src_ip", "src_ip": "detections"})
                 .head(10)
             )
-            st.dataframe(top_ips, use_container_width=True)
+            st.dataframe(top_ips, width="stretch")
 
 
 

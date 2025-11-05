@@ -5,7 +5,7 @@ load_dotenv()
 
 import google.generativeai as genai
 
-_GEMINI_MODEL = os.environ.get("GEMINI_MODEL", "gemini-1.5-flash")
+_GEMINI_MODEL = os.environ.get("GEMINI_MODEL", "gemini-2.5-pro")
 
 
 def _first_scalar(x):
@@ -58,6 +58,7 @@ def debug_intent(query: str="block IP 123.45.67.89 for today", log_type: str="ss
         parsed = intent_to_query(query, log_type)
         print("[DEBUG Fallback] RESULT:", parsed)
         return parsed
+
 def parse_time_window(text: str):
     q = text.lower()
     now = datetime.now(timezone.utc)
@@ -88,21 +89,25 @@ def intent_to_filter(query: str, log_type: str = "ssh"):
     genai.configure(api_key=api_key)
 
     response_schema = {
-        "type": "object",
+    "type": "object",
         "properties": {
             "start":   {"type": "string", "format": "date-time", "nullable": True},
             "end":     {"type": "string", "format": "date-time", "nullable": True},
 
-            "event":   {"type": "string", "enum": ["auth","firewall","cowrie"], "nullable": True},
+            "event":   {"type": "string", "enum": ["auth","firewall","cowrie","threat"], "nullable": True},
             "status":  {"type": "string", "enum": ["fail","success"], "nullable": True},
             "action":  {"type": "string", "enum": ["deny","allow"], "nullable": True},
+
+            # 🆕 threat intelligence specific
+            "threat":  {"type": "string", "nullable": True},
+            "malware": {"type": "string", "nullable": True},
 
             "eventid": {"type": "string", "nullable": True},
             "username":{"type": "string", "nullable": True},
             "password":{"type": "string", "nullable": True},
 
             "op":      {"type": "string", "enum": [
-                "top_ips","top_users","top_passwords","count",
+                "top_ips","top_users","top_passwords","top_malware","count",
                 "timeline","report","block_ip","unblock_ip",
                 "incident","list"
             ]},
@@ -133,7 +138,7 @@ Logical rules:
 - If for unblocking -> op="unblock_ip"
 - Report/summary -> op="report"
 - Incident -> op="incident"
-- Top N -> op="top_ips"/"top_users"/"top_passwords"
+- Top N -> op="top_ips"/"top_users"/"top_passwords"/"top_malware"
 - Number -> op="count"
 - Otherwise -> op="list"
 """
@@ -147,6 +152,10 @@ Logical rules:
         '{ "op":"unblock_ip", "target":"123.45.67.89", "start":"%NOW-1H%", "end":"%NOW%", "context":"analyst" }',
         f'Query: "Top 10 IPs by deny for the day"',
         '{ "op":"top_ips", "limit":10, "action":"deny", "start":"%NOW-24H%", "end":"%NOW%", "context":"analyst" }'
+        f'Query: "Top 5 malware families for the day"',
+        '{ "op":"top_malware", "limit":5, "threat":"botnet_cc", "start":"%NOW-24H%", "end":"%NOW%", "context":"analyst" }',
+        f'Query: "Show Cobalt Strike IPs"',
+        '{ "op":"top_ips", "limit":10, "malware":"cobalt_strike", "context":"analyst" }'
     ]
 
     def sub_time(s):
@@ -191,6 +200,20 @@ Logical rules:
             raise
         parsed = json.loads(m.group(0))
 
+
+    # --- normalize Gemini synonyms ---
+    if "outcome" in parsed and "status" not in parsed:
+        val = str(parsed["outcome"]).lower()
+        if val in ("failure", "failed", "error"):
+            parsed["status"] = "fail"
+        elif val in ("success", "ok", "passed"):
+            parsed["status"] = "success"
+        del parsed["outcome"]
+
+    if parsed.get("event") in ("login", "auth_fail"):
+        parsed["event"] = "auth"
+
+
     if "limit" not in parsed:
         parsed["limit"] = _extract_int(query.lower(), 10)
     if "context" not in parsed:
@@ -223,7 +246,7 @@ def intent_to_query(query: str, log_type: str = "ssh"):
         q = query.lower()
         op = "list"
         limit = _extract_int(q, 10)
-        if "топ" in q or "top" in q or "most freq" in q or "most common":
+        if "most" in q or "top" in q or "most freq" in q or "most common":
             if "src_ip" in q: op = "top_ips"
             elif "user" in q or "username" in q: op = "top_users"
             elif "passw" in q: op = "top_passwords"
@@ -241,3 +264,196 @@ def intent_to_query(query: str, log_type: str = "ssh"):
         elif log_type == "cowrie":
             pass
         return base
+
+
+# import os, re, json
+# from datetime import datetime, timezone, timedelta
+# from dotenv import load_dotenv
+# load_dotenv()
+
+# import google.generativeai as genai
+
+# _GEMINI_MODEL = os.environ.get("GEMINI_MODEL", "gemini-2.5-pro")
+
+# # ------------------------ internal utils ------------------------
+
+# def _first_scalar(x):
+#     if isinstance(x, list):
+#         return _first_scalar(x[0]) if x else None
+#     if isinstance(x, dict):
+#         for k in ("value", "text", "name"):
+#             if k in x:
+#                 return _first_scalar(x[k])
+#         if x:
+#             return _first_scalar(next(iter(x.values())))
+#         return None
+#     return x
+
+# def _iso_utc(dt: datetime) -> str:
+#     if dt.tzinfo is None:
+#         dt = dt.replace(tzinfo=timezone.utc)
+#     else:
+#         dt = dt.astimezone(timezone.utc)
+#     return dt.replace(microsecond=0).isoformat().replace("+00:00", "Z")
+
+# def _coerce_datetime(s: str) -> datetime:
+#     dt = datetime.fromisoformat(s.replace("Z", "+00:00"))
+#     if dt.tzinfo is None:
+#         dt = dt.replace(tzinfo=timezone.utc)
+#     return dt.astimezone(timezone.utc)
+
+# def _extract_int(q: str, default: int) -> int:
+#     m = re.search(r"\b(\d{1,3})\b", q)
+#     if m:
+#         try:
+#             n = int(m.group(1))
+#             return max(1, min(1000, n))
+#         except Exception:
+#             pass
+#     return default
+
+# def parse_time_window(text: str):
+#     q = text.lower()
+#     now = datetime.now(timezone.utc)
+#     if "last hour" in q or "per hour" in q:
+#         return now - timedelta(hours=1), now
+#     if "for day" in q or "today" in q:
+#         return now - timedelta(days=1), now
+#     if "last 5 minut" in q or "for 5 minut" in q or "five minut" in q:
+#         return now - timedelta(minutes=5), now
+#     return now - timedelta(hours=1), now
+
+# # ------------------------ core ------------------------
+
+# def intent_to_filter(query: str, log_type: str = "ssh"):
+#     api_key = os.environ.get("GOOGLE_API_KEY")
+#     if not api_key:
+#         raise RuntimeError("GOOGLE_API_KEY is not set")
+#     genai.configure(api_key=api_key)
+
+#     system_instruction = f"""
+# You are a SecOps Assistant. Return STRICT JSON according to the schema. No comments.
+# Current UTC: "{_iso_utc(datetime.now(timezone.utc))}"
+# Use 'event' for ssh/firewall/cowrie logs, and 'malware' for threat logs.
+# """
+
+#     few_shots = [
+#         # SSH
+#         'Query: "top 5 IPs with failed login per hour"',
+#         '{ "op":"top_ips", "limit":5, "event":"auth", "status":"fail", "start":"%NOW-1H%", "end":"%NOW%", "context":"analyst" }',
+#         # Firewall
+#         'Query: "top 10 IPs by deny per day"',
+#         '{ "op":"top_ips", "limit":10, "action":"deny", "event":"firewall", "start":"%NOW-24H%", "end":"%NOW%", "context":"analyst" }',
+#         # Cowrie
+#         'Query: "top 10 passwords today"',
+#         '{ "op":"top_passwords", "limit":10, "event":"cowrie", "start":"%NOW-24H%", "end":"%NOW%", "context":"analyst" }',
+#         # Threat intel
+#         'Query: "top 5 malware families for the day"',
+#         '{ "op":"top_malware", "limit":5, "malware":"*", "start":"%NOW-24H%", "end":"%NOW%", "context":"analyst" }',
+#         'Query: "show cobalt strike IPs"',
+#         '{ "op":"top_ips", "limit":10, "malware":"cobalt_strike", "context":"analyst" }'
+#     ]
+
+#     now = datetime.now(timezone.utc)
+#     def sub_time(s):
+#         return (s.replace("%NOW%", _iso_utc(now))
+#                  .replace("%NOW-1H%", _iso_utc(now - timedelta(hours=1)))
+#                  .replace("%NOW-24H%", _iso_utc(now - timedelta(days=1)))
+#                  .replace("%NOW-5M%", _iso_utc(now - timedelta(minutes=5))))
+
+#     content = [sub_time(x) for x in few_shots] + [f'Запрос: """{query}"""']
+
+#     model = genai.GenerativeModel(
+#         _GEMINI_MODEL,
+#         system_instruction=system_instruction,
+#         generation_config={"temperature": 0.2, "response_mime_type": "application/json"},
+#     )
+
+#     resp = model.generate_content(content)
+#     text = (getattr(resp, "text", None) or "").strip()
+#     if not text:
+#         raise RuntimeError("Empty response from Gemini")
+
+#     try:
+#         parsed = json.loads(text)
+#         if isinstance(parsed, list):
+#             parsed = next((x for x in parsed if isinstance(x, dict)), {})
+#     except Exception:
+#         m = re.search(r"\{.*\}", text, flags=re.S)
+#         parsed = json.loads(m.group(0)) if m else {}
+
+#     # --- normalize ---
+#     if "outcome" in parsed and "status" not in parsed:
+#         val = str(parsed["outcome"]).lower()
+#         parsed["status"] = "fail" if val in ("failure","failed","error") else "success"
+#         parsed.pop("outcome", None)
+
+#     if parsed.get("event") in ("login","auth_fail"):
+#         parsed["event"] = "auth"
+
+#     # --- threat intel normalization ---
+#     if log_type == "threat":
+#         q_lower = query.lower()
+#         known_mw = ["cobalt_strike","asyncrat","dcrat","quasar_rat","extreme_rat","netsupportmanager_rat"]
+#         if "malware" not in parsed:
+#             for mw in known_mw:
+#                 if mw.replace("_","") in q_lower.replace(" ",""):
+#                     parsed["malware"] = mw
+#                     break
+#         parsed["event"] = "threat"
+
+#     # --- defaults ---
+#     if "limit" not in parsed:
+#         parsed["limit"] = _extract_int(query.lower(), 10)
+#     if "context" not in parsed:
+#         parsed["context"] = "analyst"
+
+#     now = datetime.now(timezone.utc)
+#     for k in ("start","end"):
+#         if isinstance(parsed.get(k), str):
+#             parsed[k] = _coerce_datetime(parsed[k])
+#         else:
+#             parsed[k] = now - timedelta(hours=1) if k == "start" else now
+
+#     print("[Gemini]", text, parsed)
+#     return parsed
+
+
+# def intent_to_query(query: str, log_type: str = "ssh"):
+#     try:
+#         return intent_to_filter(query, log_type)
+#     except Exception as e:
+#         print(f"[intent_to_query] Gemini failed: {e}")
+#         start, end = parse_time_window(query)
+#         q = query.lower()
+#         op = "list"
+#         limit = _extract_int(q, 10)
+
+#         if "most" in q or "top" in q or "common" in q:
+#             if "ip" in q: op = "top_ips"
+#             elif "user" in q: op = "top_users"
+#             elif "password" in q: op = "top_passwords"
+#             elif "malware" in q: op = "top_malware"
+#         elif "how" in q or "count" in q:
+#             op = "count"
+
+#         base = {"start": start, "end": end, "op": op, "limit": limit, "context":"analyst"}
+
+#         if log_type == "ssh":
+#             base["event"] = "auth"
+#             if any(w in q for w in ["fail","error","unsuccessful"]):
+#                 base["status"] = "fail"
+#         elif log_type == "firewall":
+#             base["event"] = "firewall"
+#             if "deny" in q or "block" in q:
+#                 base["action"] = "deny"
+#         elif log_type == "cowrie":
+#             base["event"] = "cowrie"
+#         elif log_type == "threat":
+#             base["event"] = "threat"
+#             for mw in ["cobalt_strike","asyncrat","dcrat","quasar_rat","extreme_rat","netsupportmanager_rat"]:
+#                 if mw in q:
+#                     base["malware"] = mw
+#                     break
+
+#         return base
